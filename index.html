@@ -1,0 +1,735 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DanceFlow - 本地影片練習助手</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        mono: {
+                            50: '#ffffff',
+                            100: '#f3f4f6',
+                            200: '#e5e7eb',
+                            300: '#d1d5db',
+                            400: '#9ca3af',
+                            500: '#6b7280',
+                            600: '#4b5563',
+                            700: '#374151',
+                            800: '#1f2937',
+                            900: '#111827',
+                            950: '#0a0a0a'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        /* 鏡像翻轉樣式 */
+        .mirror-mode {
+            transform: scaleX(-1) !important;
+            -webkit-transform: scaleX(-1) !important;
+        }
+
+        /* 自訂極簡黑白進度條軌道 */
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            height: 14px;
+            width: 14px;
+            border-radius: 50%;
+            background: #ffffff;
+            cursor: pointer;
+            box-shadow: 0 0 0 2px #0a0a0a, 0 0 8px rgba(255, 255, 255, 0.5);
+            margin-top: -5px;
+        }
+
+        input[type=range]::-webkit-slider-runnable-track {
+            width: 100%;
+            height: 4px;
+            cursor: pointer;
+            background: #262626;
+            border-radius: 2px;
+        }
+
+        /* Video Frame Styling */
+        .video-wrapper {
+            position: relative;
+            width: 100%;
+            background-color: #000000;
+            border: 1px solid #262626;
+            border-radius: 0.75rem;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 280px;
+            max-height: 70vh;
+        }
+
+        video {
+            max-width: 100%;
+            max-height: 70vh;
+            width: auto;
+            height: auto;
+            object-fit: contain;
+            transition: transform 0.2s ease;
+        }
+
+        /* Drag & Drop Overlay Zone */
+        .drop-zone--over {
+            border-color: #ffffff !important;
+            background-color: rgba(255, 255, 255, 0.05) !important;
+        }
+    </style>
+</head>
+<body class="bg-mono-950 text-mono-100 min-h-screen flex flex-col font-sans selection:bg-white selection:text-black">
+
+    <!-- Top Navigation Header -->
+    <header class="border-b border-neutral-800 bg-black/90 backdrop-blur-md sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-9 h-9 rounded-lg bg-white text-black flex items-center justify-center font-bold">
+                    <i class="fa-solid fa-person-dancing text-lg"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-lg tracking-widest text-white uppercase">
+                        DanceFlow
+                    </h1>
+                    <p class="text-[10px] text-neutral-400 tracking-wider hidden sm:block uppercase">Local Video Practice Studio</p>
+                </div>
+            </div>
+
+            <!-- Header Action Info -->
+            <div class="flex items-center gap-3">
+                <span id="fileBadge" class="hidden text-xs bg-neutral-900 border border-neutral-700 text-neutral-300 px-3 py-1 rounded-full font-mono max-w-[200px] sm:max-w-xs truncate">
+                    <i class="fa-solid fa-file-video mr-1.5 text-white"></i><span id="fileNameText">No file</span>
+                </span>
+                <label for="videoFileInputHeader" class="cursor-pointer px-3 py-1.5 bg-white hover:bg-neutral-200 text-black font-semibold text-xs rounded-md transition flex items-center gap-1.5">
+                    <i class="fa-solid fa-folder-open"></i>
+                    <span>選擇影片</span>
+                </label>
+                <input type="file" id="videoFileInputHeader" accept="video/mp4,video/mov,video/webm,video/m4v,video/mkv,.mp4,.mov,.webm,.m4v,.mkv" class="hidden">
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6 flex flex-col gap-6">
+
+        <!-- Upload Drop Zone (Shown when no video loaded) -->
+        <section id="uploadDropZone" class="bg-black border-2 border-dashed border-neutral-800 rounded-2xl p-8 sm:p-12 text-center flex flex-col items-center justify-center gap-4 transition duration-200 cursor-pointer hover:border-neutral-600">
+            <div class="w-16 h-16 rounded-full bg-neutral-900 border border-neutral-800 flex items-center justify-center text-white text-2xl mb-1">
+                <i class="fa-solid fa-cloud-arrow-up"></i>
+            </div>
+            <div>
+                <h2 class="text-base font-bold text-white uppercase tracking-wider mb-1">拖曳影片至此 或 點擊上傳</h2>
+                <p class="text-xs text-neutral-400">支援 `.mp4`, `.mov`, `.webm`, `.m4v`, `.mkv` 等手機或電腦影片格式</p>
+            </div>
+            <label for="videoFileInputMain" class="mt-2 px-6 py-2.5 bg-white hover:bg-neutral-200 text-black font-semibold text-xs tracking-wider uppercase rounded-lg transition active:scale-95 cursor-pointer flex items-center gap-2">
+                <i class="fa-solid fa-file-video"></i>
+                <span>瀏覽電腦/手機影片</span>
+            </label>
+            <input type="file" id="videoFileInputMain" accept="video/mp4,video/mov,video/webm,video/m4v,video/mkv,.mp4,.mov,.webm,.m4v,.mkv" class="hidden">
+        </section>
+
+        <!-- Player Block & Control Panels (Hidden by default until video uploaded) -->
+        <div id="playerSection" class="hidden grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+            
+            <!-- Video Display Area (8 cols on lg) -->
+            <div class="lg:col-span-8 flex flex-col gap-4">
+                <!-- Video Container -->
+                <div class="relative group video-wrapper">
+                    <video id="danceVideo" playsinline preload="metadata">
+                        您的瀏覽器不支援 HTML5 影片播放。
+                    </video>
+
+                    <!-- Overlay Mirror Badge -->
+                    <div id="mirrorBadge" class="hidden absolute top-3 left-3 bg-white text-black text-[10px] uppercase font-bold tracking-wider px-2.5 py-1 rounded shadow flex items-center gap-1.5 pointer-events-none z-10">
+                        <i class="fa-solid fa-arrows-rotate"></i>
+                        <span>MIRROR MODE ON</span>
+                    </div>
+
+                    <!-- Video Meta Info Badge -->
+                    <div id="metaBadge" class="absolute bottom-3 left-3 bg-black/80 backdrop-blur border border-neutral-800 text-neutral-300 text-[10px] font-mono px-2.5 py-1 rounded flex items-center gap-2 pointer-events-none z-10">
+                        <span id="videoResText">0x0</span>
+                        <span>•</span>
+                        <span id="videoDurationText">00:00</span>
+                    </div>
+                </div>
+
+                <!-- Main Timeline & Progress Bar -->
+                <div class="bg-black border border-neutral-800 rounded-xl p-4 flex flex-col gap-3">
+                    <!-- Range Slider Container with markers -->
+                    <div class="relative w-full pt-2">
+                        <input type="range" id="progressBar" min="0" max="100" value="0" step="0.01" class="w-full">
+                        
+                        <!-- Marker A & B visualization overlay -->
+                        <div id="abLoopRange" class="absolute top-2.5 h-1 bg-white opacity-50 rounded pointer-events-none hidden"></div>
+                        <div id="markerA" class="absolute top-0 w-2 h-4 bg-white rounded-xs -translate-x-1/2 pointer-events-none hidden shadow"></div>
+                        <div id="markerB" class="absolute top-0 w-2 h-4 bg-neutral-400 rounded-xs -translate-x-1/2 pointer-events-none hidden shadow"></div>
+                    </div>
+
+                    <!-- Time Stats & Quick Jump Controls -->
+                    <div class="flex items-center justify-between text-xs font-mono text-neutral-400 pt-1">
+                        <span id="currentTimeText">00:00</span>
+                        <div class="flex items-center gap-1 sm:gap-2 font-sans">
+                            <button id="btnFramePrev" title="上一格" class="px-2 py-1 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 rounded transition text-xs">
+                                ❮❮ 1格
+                            </button>
+                            <button id="btnSeekPrev" title="後退5秒" class="px-2 py-1 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 rounded transition text-xs">
+                                -5s
+                            </button>
+                            <button id="btnPlayPause" class="px-4 py-1.5 bg-white hover:bg-neutral-200 text-black font-semibold rounded transition text-xs flex items-center gap-1">
+                                <i class="fa-solid fa-play"></i> 播放
+                            </button>
+                            <button id="btnSeekNext" title="快進5秒" class="px-2 py-1 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 rounded transition text-xs">
+                                +5s
+                            </button>
+                            <button id="btnFrameNext" title="下一格" class="px-2 py-1 bg-neutral-900 hover:bg-neutral-800 text-neutral-300 border border-neutral-800 rounded transition text-xs">
+                                1格 ❯❯
+                            </button>
+                        </div>
+                        <span id="totalTimeText">00:00</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Practice Controls Panel (4 cols on lg) -->
+            <div class="lg:col-span-4 flex flex-col gap-4">
+                
+                <!-- 1. Mirror Mode & Video Action Controls -->
+                <div class="bg-black border border-neutral-800 rounded-xl p-5">
+                    <h2 class="text-xs font-bold text-neutral-300 uppercase tracking-widest mb-4 flex items-center gap-2">
+                        <i class="fa-solid fa-sliders text-white"></i>
+                        畫面控制 (DISPLAY)
+                    </h2>
+
+                    <div class="flex flex-col gap-2.5">
+                        <button id="btnToggleMirror" class="w-full py-2.5 px-4 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-medium text-neutral-200 transition flex items-center justify-between">
+                            <span class="flex items-center gap-2">
+                                <i class="fa-solid fa-arrows-left-right text-neutral-400"></i>
+                                <span>水平鏡像 (Mirror)</span>
+                            </span>
+                            <span id="mirrorStatusText" class="text-[10px] px-2 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-400 font-mono">OFF</span>
+                        </button>
+
+                        <button id="btnFullscreen" class="w-full py-2.5 px-4 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 rounded-lg text-xs text-neutral-300 transition flex items-center justify-center gap-2">
+                            <i class="fa-solid fa-expand text-neutral-400"></i>
+                            <span>全螢幕模式</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- 2. Playback Speed Section -->
+                <div class="bg-black border border-neutral-800 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xs font-bold text-neutral-300 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-gauge-high text-white"></i>
+                            播放速度 (SPEED)
+                        </h2>
+                        <span id="speedValueText" class="text-xs font-mono bg-neutral-800 text-white px-2 py-0.5 rounded border border-neutral-700">1.00x</span>
+                    </div>
+
+                    <!-- Preset speed buttons -->
+                    <div class="grid grid-cols-3 gap-2 mb-3">
+                        <button class="speed-btn py-1.5 text-xs font-mono bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded transition text-neutral-300" data-speed="0.25">0.25x</button>
+                        <button class="speed-btn py-1.5 text-xs font-mono bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded transition text-neutral-300" data-speed="0.5">0.50x</button>
+                        <button class="speed-btn py-1.5 text-xs font-mono bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded transition text-neutral-300" data-speed="0.75">0.75x</button>
+                        <button class="speed-btn py-1.5 text-xs font-mono bg-white text-black font-semibold border border-white rounded transition" data-speed="1.0">1.00x</button>
+                        <button class="speed-btn py-1.5 text-xs font-mono bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded transition text-neutral-300" data-speed="1.25">1.25x</button>
+                        <button class="speed-btn py-1.5 text-xs font-mono bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded transition text-neutral-300" data-speed="1.5">1.50x</button>
+                    </div>
+
+                    <!-- Fine-tune Slider -->
+                    <div class="flex items-center gap-3 pt-2">
+                        <span class="text-[10px] text-neutral-500 font-mono">0.10</span>
+                        <input type="range" id="speedSlider" min="0.10" max="2.00" step="0.05" value="1.0" class="w-full">
+                        <span class="text-[10px] text-neutral-500 font-mono">2.00</span>
+                    </div>
+                </div>
+
+                <!-- 3. AB Section Loop Control -->
+                <div class="bg-black border border-neutral-800 rounded-xl p-5">
+                    <div class="flex items-center justify-between mb-4">
+                        <h2 class="text-xs font-bold text-neutral-300 uppercase tracking-widest flex items-center gap-2">
+                            <i class="fa-solid fa-repeat text-white"></i>
+                            AB 段落循環 (LOOP)
+                        </h2>
+                        <span id="abLoopStatusText" class="text-[10px] text-neutral-500 font-mono uppercase">INACTIVE</span>
+                    </div>
+
+                    <div class="grid grid-cols-2 gap-2.5 mb-3">
+                        <button id="btnSetA" class="py-2 px-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-medium text-neutral-200 transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-flag text-neutral-400"></i>
+                            <span>設定點 A</span>
+                        </button>
+                        <button id="btnSetB" class="py-2 px-3 bg-neutral-900 hover:bg-neutral-800 border border-neutral-700 rounded-lg text-xs font-medium text-neutral-200 transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-flag-checkered text-neutral-400"></i>
+                            <span>設定點 B</span>
+                        </button>
+                    </div>
+
+                    <div class="bg-neutral-950 p-2.5 rounded-lg border border-neutral-800 mb-3 flex items-center justify-between text-xs font-mono">
+                        <div class="text-neutral-400">
+                            POINT A: <span id="textPointA" class="text-white font-bold">--:--</span>
+                        </div>
+                        <div class="text-neutral-600">➔</div>
+                        <div class="text-neutral-400">
+                            POINT B: <span id="textPointB" class="text-white font-bold">--:--</span>
+                        </div>
+                    </div>
+
+                    <div class="flex gap-2">
+                        <button id="btnToggleAB" disabled class="flex-1 py-2 bg-neutral-900 opacity-40 text-neutral-500 border border-neutral-800 rounded-lg text-xs font-semibold uppercase tracking-wider transition flex items-center justify-center gap-1.5">
+                            <i class="fa-solid fa-power-off"></i>
+                            <span>啟用循環</span>
+                        </button>
+                        <button id="btnClearAB" class="py-2 px-3 bg-neutral-900 hover:bg-neutral-800 text-neutral-400 hover:text-white border border-neutral-800 rounded-lg text-xs transition">
+                            <i class="fa-solid fa-trash-can"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Keyboard Shortcuts Tip -->
+                <div class="bg-black border border-neutral-800 rounded-xl p-4 text-xs text-neutral-400">
+                    <div class="font-bold text-neutral-200 uppercase tracking-widest text-[11px] mb-2 flex items-center gap-1.5">
+                        <i class="fa-regular fa-keyboard text-white"></i> 快捷鍵 (SHORTCUTS)
+                    </div>
+                    <ul class="space-y-1.5 text-[11px] text-neutral-400">
+                        <li class="flex justify-between"><span>播放 / 暫停</span><kbd class="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 text-neutral-200 rounded font-mono">Space</kbd></li>
+                        <li class="flex justify-between"><span>快進 5s / 快退 5s</span><div><kbd class="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 text-neutral-200 rounded font-mono">←</kbd> <kbd class="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 text-neutral-200 rounded font-mono">→</kbd></div></li>
+                        <li class="flex justify-between"><span>開關鏡像</span><kbd class="px-1.5 py-0.5 bg-neutral-900 border border-neutral-700 text-neutral-200 rounded font-mono">M</kbd></li>
+                    </ul>
+                </div>
+
+            </div>
+        </div>
+    </main>
+
+    <!-- Footer -->
+    <footer class="border-t border-neutral-900 py-4 mt-auto bg-black">
+        <div class="max-w-7xl mx-auto px-4 text-center text-[11px] text-neutral-600 uppercase tracking-widest">
+            DanceFlow &copy; Local Video Dance Studio
+        </div>
+    </footer>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed bottom-6 right-6 bg-white text-black px-4 py-3 rounded-lg shadow-xl flex items-center gap-3 transition-all duration-300 translate-y-20 opacity-0 z-50 border border-neutral-300">
+        <i id="toastIcon" class="fa-solid fa-circle-info text-black text-base"></i>
+        <span id="toastMsg" class="text-xs font-semibold tracking-wide">NOTIFICATION</span>
+    </div>
+
+    <!-- Application Script Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // HTML Elements
+            const videoFileInputMain = document.getElementById('videoFileInputMain');
+            const videoFileInputHeader = document.getElementById('videoFileInputHeader');
+            const uploadDropZone = document.getElementById('uploadDropZone');
+            const playerSection = document.getElementById('playerSection');
+            const danceVideo = document.getElementById('danceVideo');
+            
+            const fileBadge = document.getElementById('fileBadge');
+            const fileNameText = document.getElementById('fileNameText');
+            const videoResText = document.getElementById('videoResText');
+            const videoDurationText = document.getElementById('videoDurationText');
+
+            // Controls
+            const btnPlayPause = document.getElementById('btnPlayPause');
+            const progressBar = document.getElementById('progressBar');
+            const currentTimeText = document.getElementById('currentTimeText');
+            const totalTimeText = document.getElementById('totalTimeText');
+            const btnToggleMirror = document.getElementById('btnToggleMirror');
+            const mirrorStatusText = document.getElementById('mirrorStatusText');
+            const mirrorBadge = document.getElementById('mirrorBadge');
+            const btnFullscreen = document.getElementById('btnFullscreen');
+
+            // Speed
+            const speedBtns = document.querySelectorAll('.speed-btn');
+            const speedSlider = document.getElementById('speedSlider');
+            const speedValueText = document.getElementById('speedValueText');
+
+            // AB Loop
+            const btnSetA = document.getElementById('btnSetA');
+            const btnSetB = document.getElementById('btnSetB');
+            const btnToggleAB = document.getElementById('btnToggleAB');
+            const btnClearAB = document.getElementById('btnClearAB');
+            const textPointA = document.getElementById('textPointA');
+            const textPointB = document.getElementById('textPointB');
+            const abLoopStatusText = document.getElementById('abLoopStatusText');
+
+            // State
+            let isMirrored = false;
+            let pointA = null;
+            let pointB = null;
+            let isABActive = false;
+            let currentObjectUrl = null;
+
+            // 1. File Upload & Drag-and-Drop Handling
+            [videoFileInputMain, videoFileInputHeader].forEach(input => {
+                input.addEventListener('change', (e) => {
+                    if (e.target.files && e.target.files[0]) {
+                        loadLocalVideoFile(e.target.files[0]);
+                    }
+                });
+            });
+
+            uploadDropZone.addEventListener('click', (e) => {
+                if (e.target !== videoFileInputMain) {
+                    videoFileInputMain.click();
+                }
+            });
+
+            ['dragenter', 'dragover'].forEach(eventName => {
+                uploadDropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    uploadDropZone.classList.add('drop-zone--over');
+                }, false);
+            });
+
+            ['dragleave', 'drop'].forEach(eventName => {
+                uploadDropZone.addEventListener(eventName, (e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    uploadDropZone.classList.remove('drop-zone--over');
+                }, false);
+            });
+
+            uploadDropZone.addEventListener('drop', (e) => {
+                const dt = e.dataTransfer;
+                if (dt.files && dt.files[0]) {
+                    loadLocalVideoFile(dt.files[0]);
+                }
+            });
+
+            function loadLocalVideoFile(file) {
+                if (!file.type.startsWith('video/') && !file.name.match(/\.(mp4|mov|webm|m4v|mkv)$/i)) {
+                    showToast('請上傳有效的影片檔案 (.mp4, .mov, .webm 等)', 'fa-triangle-exclamation');
+                    return;
+                }
+
+                // Revoke old Object URL if existed
+                if (currentObjectUrl) {
+                    URL.revokeObjectURL(currentObjectUrl);
+                }
+
+                currentObjectUrl = URL.createObjectURL(file);
+                danceVideo.src = currentObjectUrl;
+
+                // UI Display Updates
+                fileNameText.innerText = file.name;
+                fileBadge.classList.remove('hidden');
+                uploadDropZone.classList.add('hidden');
+                playerSection.classList.remove('hidden');
+                playerSection.classList.add('grid');
+
+                clearABLoop();
+                showToast(`已成功載入本地影片: ${file.name}`);
+            }
+
+            // Video Metadata Loaded
+            danceVideo.addEventListener('loadedmetadata', () => {
+                videoResText.innerText = `${danceVideo.videoWidth} x ${danceVideo.videoHeight}`;
+                const duration = danceVideo.duration;
+                totalTimeText.innerText = formatTime(duration);
+                videoDurationText.innerText = formatTime(duration);
+            });
+
+            // 2. Time Update & AB Loop Check
+            danceVideo.addEventListener('timeupdate', () => {
+                const currentTime = danceVideo.currentTime;
+                const duration = danceVideo.duration;
+
+                if (duration > 0 && !progressBar.isInteracting) {
+                    const progressPct = (currentTime / duration) * 100;
+                    progressBar.value = progressPct;
+                    currentTimeText.innerText = formatTime(currentTime);
+                }
+
+                // Check AB Loop
+                if (isABActive && pointA !== null && pointB !== null) {
+                    if (currentTime >= pointB || currentTime < pointA) {
+                        danceVideo.currentTime = pointA;
+                    }
+                }
+            });
+
+            // 3. Play & Pause Events
+            danceVideo.addEventListener('play', () => {
+                btnPlayPause.innerHTML = `<i class="fa-solid fa-pause"></i> 暫停`;
+            });
+
+            danceVideo.addEventListener('pause', () => {
+                btnPlayPause.innerHTML = `<i class="fa-solid fa-play"></i> 播放`;
+            });
+
+            btnPlayPause.addEventListener('click', () => {
+                if (danceVideo.paused) {
+                    danceVideo.play();
+                } else {
+                    danceVideo.pause();
+                }
+            });
+
+            // 4. Mirror Mode
+            btnToggleMirror.addEventListener('click', toggleMirror);
+
+            function toggleMirror() {
+                isMirrored = !isMirrored;
+                if (isMirrored) {
+                    danceVideo.classList.add('mirror-mode');
+                    mirrorStatusText.innerText = 'ON';
+                    mirrorStatusText.className = 'text-[10px] px-2 py-0.5 rounded bg-white text-black font-bold font-mono';
+                    mirrorBadge.classList.remove('hidden');
+                    showToast('已開啟畫面鏡像模式', 'fa-arrows-left-right');
+                } else {
+                    danceVideo.classList.remove('mirror-mode');
+                    mirrorStatusText.innerText = 'OFF';
+                    mirrorStatusText.className = 'text-[10px] px-2 py-0.5 rounded bg-neutral-800 border border-neutral-700 text-neutral-400 font-mono';
+                    mirrorBadge.classList.add('hidden');
+                    showToast('已關閉畫面鏡像模式', 'fa-arrows-left-right');
+                }
+            }
+
+            // 5. Speed Controls
+            function setPlaybackSpeed(speed) {
+                const targetSpeed = parseFloat(speed);
+                danceVideo.playbackRate = targetSpeed;
+                speedValueText.innerText = `${targetSpeed.toFixed(2)}x`;
+                speedSlider.value = targetSpeed;
+
+                speedBtns.forEach(btn => {
+                    const btnSpeed = parseFloat(btn.dataset.speed);
+                    if (Math.abs(btnSpeed - targetSpeed) < 0.01) {
+                        btn.className = 'speed-btn py-1.5 text-xs font-mono bg-white text-black font-semibold border border-white rounded transition';
+                    } else {
+                        btn.className = 'speed-btn py-1.5 text-xs font-mono bg-neutral-900 hover:bg-neutral-800 border border-neutral-800 rounded transition text-neutral-300';
+                    }
+                });
+            }
+
+            speedBtns.forEach(btn => {
+                btn.addEventListener('click', () => setPlaybackSpeed(btn.dataset.speed));
+            });
+
+            speedSlider.addEventListener('input', (e) => {
+                setPlaybackSpeed(e.target.value);
+            });
+
+            // 6. Seeking & Frame Controls
+            document.getElementById('btnSeekPrev').addEventListener('click', () => seekRelative(-5));
+            document.getElementById('btnSeekNext').addEventListener('click', () => seekRelative(5));
+            
+            // Approximate frame stepping (assuming 30fps = ~0.033s)
+            document.getElementById('btnFramePrev').addEventListener('click', () => seekRelative(-0.033));
+            document.getElementById('btnFrameNext').addEventListener('click', () => seekRelative(0.033));
+
+            function seekRelative(seconds) {
+                if (!danceVideo.duration) return;
+                danceVideo.currentTime = Math.max(0, Math.min(danceVideo.duration, danceVideo.currentTime + seconds));
+            }
+
+            // Scrubber Dragging
+            progressBar.addEventListener('mousedown', () => progressBar.isInteracting = true);
+            progressBar.addEventListener('touchstart', () => progressBar.isInteracting = true);
+
+            progressBar.addEventListener('input', (e) => {
+                if (!danceVideo.duration) return;
+                const targetTime = (e.target.value / 100) * danceVideo.duration;
+                currentTimeText.innerText = formatTime(targetTime);
+            });
+
+            progressBar.addEventListener('change', (e) => {
+                if (!danceVideo.duration) return;
+                const targetTime = (e.target.value / 100) * danceVideo.duration;
+                danceVideo.currentTime = targetTime;
+                progressBar.isInteracting = false;
+            });
+
+            // 7. AB Loop
+            btnSetA.addEventListener('click', () => {
+                if (!danceVideo.duration) return;
+                pointA = danceVideo.currentTime;
+                textPointA.innerText = formatTime(pointA);
+
+                if (pointB !== null && pointB <= pointA) {
+                    pointB = null;
+                    textPointB.innerText = '--:--';
+                    disableABLoop();
+                }
+                updateABVisuals();
+                showToast(`已設定起點 A: ${formatTime(pointA)}`, 'fa-flag');
+            });
+
+            btnSetB.addEventListener('click', () => {
+                if (!danceVideo.duration) return;
+                const currentTime = danceVideo.currentTime;
+
+                if (pointA !== null && currentTime <= pointA) {
+                    showToast('終點 B 必須大於起點 A！', 'fa-triangle-exclamation');
+                    return;
+                }
+
+                pointB = currentTime;
+                textPointB.innerText = formatTime(pointB);
+
+                if (pointA !== null) {
+                    enableABLoop();
+                }
+                updateABVisuals();
+                showToast(`已設定終點 B: ${formatTime(pointB)}`, 'fa-flag-checkered');
+            });
+
+            btnToggleAB.addEventListener('click', () => {
+                if (isABActive) {
+                    disableABLoop();
+                } else if (pointA !== null && pointB !== null) {
+                    enableABLoop();
+                }
+            });
+
+            btnClearAB.addEventListener('click', clearABLoop);
+
+            function enableABLoop() {
+                if (pointA === null || pointB === null) return;
+                isABActive = true;
+                btnToggleAB.disabled = false;
+                btnToggleAB.className = 'flex-1 py-2 bg-white text-black font-bold border border-white rounded-lg text-xs uppercase tracking-wider transition flex items-center justify-center gap-1.5 shadow';
+                abLoopStatusText.innerText = 'ACTIVE';
+                abLoopStatusText.className = 'text-[10px] text-white font-mono uppercase font-bold';
+                showToast('已開啟 A-B 區段循環', 'fa-repeat');
+            }
+
+            function disableABLoop() {
+                isABActive = false;
+                if (pointA !== null && pointB !== null) {
+                    btnToggleAB.disabled = false;
+                    btnToggleAB.className = 'flex-1 py-2 bg-neutral-900 hover:bg-neutral-800 text-neutral-200 border border-neutral-700 rounded-lg text-xs font-semibold uppercase tracking-wider transition flex items-center justify-center gap-1.5';
+                } else {
+                    btnToggleAB.disabled = true;
+                    btnToggleAB.className = 'flex-1 py-2 bg-neutral-900 opacity-40 text-neutral-500 border border-neutral-800 rounded-lg text-xs font-semibold uppercase tracking-wider transition flex items-center justify-center gap-1.5';
+                }
+                abLoopStatusText.innerText = 'INACTIVE';
+                abLoopStatusText.className = 'text-[10px] text-neutral-500 font-mono uppercase';
+            }
+
+            function clearABLoop() {
+                pointA = null;
+                pointB = null;
+                textPointA.innerText = '--:--';
+                textPointB.innerText = '--:--';
+                disableABLoop();
+                updateABVisuals();
+            }
+
+            function updateABVisuals() {
+                const markerA = document.getElementById('markerA');
+                const markerB = document.getElementById('markerB');
+                const abLoopRange = document.getElementById('abLoopRange');
+
+                const duration = danceVideo.duration;
+                if (!duration) return;
+
+                if (pointA !== null) {
+                    markerA.style.left = `${(pointA / duration) * 100}%`;
+                    markerA.classList.remove('hidden');
+                } else {
+                    markerA.classList.add('hidden');
+                }
+
+                if (pointB !== null) {
+                    markerB.style.left = `${(pointB / duration) * 100}%`;
+                    markerB.classList.remove('hidden');
+                } else {
+                    markerB.classList.add('hidden');
+                }
+
+                if (pointA !== null && pointB !== null) {
+                    const posA = (pointA / duration) * 100;
+                    const posB = (pointB / duration) * 100;
+                    abLoopRange.style.left = `${posA}%`;
+                    abLoopRange.style.width = `${posB - posA}%`;
+                    abLoopRange.classList.remove('hidden');
+                } else {
+                    abLoopRange.classList.add('hidden');
+                }
+            }
+
+            // 8. Fullscreen
+            btnFullscreen.addEventListener('click', () => {
+                if (danceVideo.requestFullscreen) {
+                    danceVideo.requestFullscreen();
+                } else if (danceVideo.webkitRequestFullscreen) {
+                    danceVideo.webkitRequestFullscreen();
+                }
+            });
+
+            // 9. Keyboard Shortcuts
+            document.addEventListener('keydown', (e) => {
+                if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return;
+
+                switch (e.code) {
+                    case 'Space':
+                        e.preventDefault();
+                        btnPlayPause.click();
+                        break;
+                    case 'ArrowLeft':
+                        e.preventDefault();
+                        seekRelative(-5);
+                        break;
+                    case 'ArrowRight':
+                        e.preventDefault();
+                        seekRelative(5);
+                        break;
+                    case 'ArrowUp':
+                        e.preventDefault();
+                        danceVideo.volume = Math.min(1, danceVideo.volume + 0.1);
+                        break;
+                    case 'ArrowDown':
+                        e.preventDefault();
+                        danceVideo.volume = Math.max(0, danceVideo.volume - 0.1);
+                        break;
+                    case 'KeyM':
+                        e.preventDefault();
+                        toggleMirror();
+                        break;
+                }
+            });
+
+            // Utility Helpers
+            function formatTime(seconds) {
+                if (isNaN(seconds) || seconds === null) return "00:00";
+                const mins = Math.floor(seconds / 60);
+                const secs = Math.floor(seconds % 60);
+                return `${mins < 10 ? '0' : ''}${mins}:${secs < 10 ? '0' : ''}${secs}`;
+            }
+
+            function showToast(message, iconClass = "fa-circle-info") {
+                const toast = document.getElementById('toast');
+                const toastMsg = document.getElementById('toastMsg');
+                const toastIcon = document.getElementById('toastIcon');
+
+                toastMsg.innerText = message;
+                toastIcon.className = `fa-solid ${iconClass} text-black text-base`;
+
+                toast.classList.remove('translate-y-20', 'opacity-0');
+                toast.classList.add('translate-y-0', 'opacity-100');
+
+                setTimeout(() => {
+                    toast.classList.remove('translate-y-0', 'opacity-100');
+                    toast.classList.add('translate-y-20', 'opacity-0');
+                }, 2500);
+            }
+        });
+    </script>
+</body>
+</html>
